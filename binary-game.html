@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Binary DIP Switch Game</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @keyframes flashBang {
+      0% { background-color: #fff; transform: scale(1.05); }
+      50% { background-color: #22d3ee; transform: scale(1); }
+      100% { background-color: transparent; transform: scale(1); }
+    }
+    .flash-bang {
+      animation: flashBang 0.6s ease-out;
+    }
+    @keyframes scorePopIn {
+      0% { transform: scale(0.5); opacity: 0; }
+      60% { transform: scale(1.2); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .score-pop {
+      animation: scorePopIn 0.4s ease-out;
+    }
+    .switch-track {
+      transition: background-color 0.2s, box-shadow 0.2s;
+    }
+    .switch-thumb {
+      transition: transform 0.2s, background-color 0.2s;
+    }
+  </style>
+</head>
+<body class="bg-gray-950 text-white min-h-screen flex flex-col items-center justify-center p-4">
+
+  <div id="game-container" class="w-full max-w-2xl flex flex-col items-center gap-8">
+
+    <!-- Header -->
+    <div class="text-center">
+      <h1 class="text-3xl font-bold tracking-tight text-cyan-400">Binary DIP Switch</h1>
+      <p class="text-gray-400 mt-1 text-sm">Flip the switches to match the target number</p>
+    </div>
+
+    <!-- Score & Streak -->
+    <div class="flex gap-8 text-center">
+      <div>
+        <div class="text-xs uppercase tracking-wider text-gray-500">Score</div>
+        <div id="score" class="text-2xl font-mono font-bold text-cyan-300">0</div>
+      </div>
+      <div>
+        <div class="text-xs uppercase tracking-wider text-gray-500">Streak</div>
+        <div id="streak" class="text-2xl font-mono font-bold text-amber-400">0</div>
+      </div>
+      <div>
+        <div class="text-xs uppercase tracking-wider text-gray-500">Best</div>
+        <div id="best" class="text-2xl font-mono font-bold text-emerald-400">0</div>
+      </div>
+    </div>
+
+    <!-- Target Number -->
+    <div id="target-display" class="
+      rounded-2xl bg-gray-900 border border-gray-800 px-10 py-6
+      flex flex-col items-center gap-2 transition-all duration-300
+    ">
+      <div class="text-xs uppercase tracking-wider text-gray-500">Target</div>
+      <div id="target-decimal" class="text-6xl font-mono font-black text-white"></div>
+      <div id="target-binary" class="text-lg font-mono text-gray-500 tracking-widest"></div>
+    </div>
+
+    <!-- Current Value -->
+    <div class="flex flex-col items-center gap-1">
+      <div class="text-xs uppercase tracking-wider text-gray-500">Your Value</div>
+      <div id="current-decimal" class="text-3xl font-mono font-bold text-cyan-400">0</div>
+      <div id="current-binary" class="text-sm font-mono text-gray-600 tracking-widest">00000000</div>
+    </div>
+
+    <!-- DIP Switches -->
+    <div class="flex flex-col items-center gap-3">
+      <!-- Bit labels -->
+      <div class="flex gap-3 sm:gap-4">
+        <div class="w-12 sm:w-14 text-center text-[10px] font-mono text-gray-600">2<sup>7</sup></div>
+        <div class="w-12 sm:w-14 text-center text-[10px] font-mono text-gray-600">2<sup>6</sup></div>
+        <div class="w-12 sm:w-14 text-center text-[10px] font-mono text-gray-600">2<sup>5</sup></div>
+        <div class="w-12 sm:w-14 text-center text-[10px] font-mono text-gray-600">2<sup>4</sup></div>
+        <div class="w-12 sm:w-14 text-center text-[10px] font-mono text-gray-600">2<sup>3</sup></div>
+        <div class="w-12 sm:w-14 text-center text-[10px] font-mono text-gray-600">2<sup>2</sup></div>
+        <div class="w-12 sm:w-14 text-center text-[10px] font-mono text-gray-600">2<sup>1</sup></div>
+        <div class="w-12 sm:w-14 text-center text-[10px] font-mono text-gray-600">2<sup>0</sup></div>
+      </div>
+
+      <!-- Switches -->
+      <div id="switches" class="
+        flex gap-3 sm:gap-4 bg-gray-900 border border-gray-800
+        rounded-xl px-4 py-5
+      "></div>
+
+      <!-- Value labels -->
+      <div class="flex gap-3 sm:gap-4">
+        <div class="w-12 sm:w-14 text-center text-[10px] font-mono text-gray-600">128</div>
+        <div class="w-12 sm:w-14 text-center text-[10px] font-mono text-gray-600">64</div>
+        <div class="w-12 sm:w-14 text-center text-[10px] font-mono text-gray-600">32</div>
+        <div class="w-12 sm:w-14 text-center text-[10px] font-mono text-gray-600">16</div>
+        <div class="w-12 sm:w-14 text-center text-[10px] font-mono text-gray-600">8</div>
+        <div class="w-12 sm:w-14 text-center text-[10px] font-mono text-gray-600">4</div>
+        <div class="w-12 sm:w-14 text-center text-[10px] font-mono text-gray-600">2</div>
+        <div class="w-12 sm:w-14 text-center text-[10px] font-mono text-gray-600">1</div>
+      </div>
+    </div>
+
+    <!-- Keyboard hint -->
+    <p class="text-xs text-gray-600">Click switches or press keys <kbd class="px-1.5 py-0.5 bg-gray-800 rounded text-gray-400">1</kbd>-<kbd class="px-1.5 py-0.5 bg-gray-800 rounded text-gray-400">8</kbd> (left to right)</p>
+
+    <!-- Reset -->
+    <button id="reset-btn" class="
+      text-xs text-gray-600 hover:text-gray-400 transition-colors
+      underline underline-offset-2
+    ">Reset Score</button>
+  </div>
+
+  <script>
+    const NUM_BITS = 8;
+    let bits = new Array(NUM_BITS).fill(0); // bits[0] = MSB (2^7), bits[7] = LSB (2^0)
+    let targetNumber = 0;
+    let score = 0;
+    let streak = 0;
+    let bestStreak = 0;
+
+    const switchesContainer = document.getElementById('switches');
+    const targetDecimalEl = document.getElementById('target-decimal');
+    const targetBinaryEl = document.getElementById('target-binary');
+    const currentDecimalEl = document.getElementById('current-decimal');
+    const currentBinaryEl = document.getElementById('current-binary');
+    const targetDisplay = document.getElementById('target-display');
+    const scoreEl = document.getElementById('score');
+    const streakEl = document.getElementById('streak');
+    const bestEl = document.getElementById('best');
+    const resetBtn = document.getElementById('reset-btn');
+
+    function createSwitches() {
+      switchesContainer.innerHTML = '';
+      for (let i = 0; i < NUM_BITS; i++) {
+        const sw = document.createElement('button');
+        sw.className = 'w-12 sm:w-14 h-20 rounded-lg flex flex-col items-center justify-end pb-2 cursor-pointer switch-track bg-gray-800 focus:outline-none focus:ring-2 focus:ring-cyan-500';
+        sw.dataset.bit = i;
+        sw.setAttribute('aria-label', `Bit ${7 - i} (value ${Math.pow(2, 7 - i)})`);
+
+        const thumb = document.createElement('div');
+        thumb.className = 'w-8 sm:w-10 h-8 rounded-md switch-thumb bg-gray-600 transform translate-y-0';
+        sw.appendChild(thumb);
+
+        const label = document.createElement('span');
+        label.className = 'text-[10px] font-mono mt-1 text-gray-500';
+        label.textContent = '0';
+        sw.appendChild(label);
+
+        sw.addEventListener('click', () => toggleBit(i));
+        switchesContainer.appendChild(sw);
+      }
+    }
+
+    function toggleBit(index) {
+      bits[index] = bits[index] ? 0 : 1;
+      updateSwitchVisual(index);
+      updateCurrentValue();
+      checkAnswer();
+    }
+
+    function updateSwitchVisual(index) {
+      const sw = switchesContainer.children[index];
+      const thumb = sw.children[0];
+      const label = sw.children[1];
+      const isOn = bits[index] === 1;
+
+      if (isOn) {
+        sw.className = 'w-12 sm:w-14 h-20 rounded-lg flex flex-col items-center justify-start pt-2 cursor-pointer switch-track bg-cyan-900 shadow-[0_0_12px_rgba(34,211,238,0.3)] focus:outline-none focus:ring-2 focus:ring-cyan-500';
+        thumb.className = 'w-8 sm:w-10 h-8 rounded-md switch-thumb bg-cyan-400 transform translate-y-0';
+        label.textContent = '1';
+        label.className = 'text-[10px] font-mono mt-1 text-cyan-300 font-bold';
+      } else {
+        sw.className = 'w-12 sm:w-14 h-20 rounded-lg flex flex-col items-center justify-end pb-2 cursor-pointer switch-track bg-gray-800 focus:outline-none focus:ring-2 focus:ring-cyan-500';
+        thumb.className = 'w-8 sm:w-10 h-8 rounded-md switch-thumb bg-gray-600 transform translate-y-0';
+        label.textContent = '0';
+        label.className = 'text-[10px] font-mono mt-1 text-gray-500';
+      }
+    }
+
+    function getCurrentValue() {
+      let val = 0;
+      for (let i = 0; i < NUM_BITS; i++) {
+        val += bits[i] * Math.pow(2, NUM_BITS - 1 - i);
+      }
+      return val;
+    }
+
+    function updateCurrentValue() {
+      const val = getCurrentValue();
+      currentDecimalEl.textContent = val;
+      currentBinaryEl.textContent = val.toString(2).padStart(NUM_BITS, '0');
+
+      // Color feedback — green tint when getting closer
+      const diff = Math.abs(val - targetNumber);
+      if (diff === 0) {
+        currentDecimalEl.className = 'text-3xl font-mono font-bold text-emerald-400';
+      } else {
+        currentDecimalEl.className = 'text-3xl font-mono font-bold text-cyan-400';
+      }
+    }
+
+    function generateTarget() {
+      let newTarget;
+      do {
+        newTarget = Math.floor(Math.random() * 256);
+      } while (newTarget === targetNumber);
+      targetNumber = newTarget;
+
+      targetDecimalEl.textContent = targetNumber;
+      targetBinaryEl.textContent = targetNumber.toString(2).padStart(NUM_BITS, '0');
+    }
+
+    function resetSwitches() {
+      bits.fill(0);
+      for (let i = 0; i < NUM_BITS; i++) {
+        updateSwitchVisual(i);
+      }
+      updateCurrentValue();
+    }
+
+    function flashBang() {
+      targetDisplay.classList.remove('flash-bang');
+      void targetDisplay.offsetWidth; // trigger reflow
+      targetDisplay.classList.add('flash-bang');
+
+      scoreEl.classList.remove('score-pop');
+      void scoreEl.offsetWidth;
+      scoreEl.classList.add('score-pop');
+    }
+
+    function checkAnswer() {
+      if (getCurrentValue() === targetNumber) {
+        score++;
+        streak++;
+        if (streak > bestStreak) {
+          bestStreak = streak;
+          bestEl.textContent = bestStreak;
+        }
+        scoreEl.textContent = score;
+        streakEl.textContent = streak;
+
+        flashBang();
+
+        // Brief delay then next round
+        setTimeout(() => {
+          resetSwitches();
+          generateTarget();
+        }, 600);
+      }
+    }
+
+    // Keyboard controls: 1-8 toggle bits left to right
+    document.addEventListener('keydown', (e) => {
+      const key = parseInt(e.key);
+      if (key >= 1 && key <= 8) {
+        toggleBit(key - 1);
+      }
+    });
+
+    resetBtn.addEventListener('click', () => {
+      score = 0;
+      streak = 0;
+      bestStreak = 0;
+      scoreEl.textContent = 0;
+      streakEl.textContent = 0;
+      bestEl.textContent = 0;
+      resetSwitches();
+      generateTarget();
+    });
+
+    // Init
+    createSwitches();
+    generateTarget();
+    updateCurrentValue();
+  </script>
+</body>
+</html>
